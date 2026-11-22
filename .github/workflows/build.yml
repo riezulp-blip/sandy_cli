@@ -1,0 +1,50 @@
+name: Build Sandy for Windows
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Check out Sandy
+        uses: actions/checkout@v4
+        with:
+          path: sandy_cli
+
+      - name: Check out toml11 dependency
+        uses: actions/checkout@v4
+        with:
+          repository: ToruNiina/toml11
+          ref: v4.4.0
+          path: toml11
+
+      - name: Set up MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Build Sandy (64-bit Release)
+        working-directory: sandy_cli
+        run: msbuild sandy.sln /m /p:Configuration=Release /p:Platform=x64 /p:RestoreIgnoreFailedSources=true
+
+      - name: Verify executable
+        shell: pwsh
+        run: |
+          $exe = "sandy_cli/x64/Release/sandy.exe"
+          if (!(Test-Path $exe)) {
+            Write-Error "Build completed but sandy.exe was not found at $exe"
+            exit 1
+          }
+          Get-Item $exe | Format-List Name,Length,LastWriteTime
+
+      - name: Upload Sandy executable
+        uses: actions/upload-artifact@v4
+        with:
+          name: sandy-windows-x64
+          path: sandy_cli/x64/Release/sandy.exe
+          if-no-files-found: error
+          retention-days: 14
